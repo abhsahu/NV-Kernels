@@ -2612,6 +2612,7 @@ void serial8250_do_set_divisor(struct uart_port *port, unsigned int baud,
 			       unsigned int quot, unsigned int quot_frac)
 {
 	struct uart_8250_port *up = up_to_u8250p(port);
+    return;
 
 	/* Workaround to enable 115200 baud on OMAP1510 internal ports */
 	if (is_omap1510_8250(up)) {
@@ -2638,6 +2639,7 @@ EXPORT_SYMBOL_GPL(serial8250_do_set_divisor);
 static void serial8250_set_divisor(struct uart_port *port, unsigned int baud,
 				   unsigned int quot, unsigned int quot_frac)
 {
+    return;
 	if (port->set_divisor)
 		port->set_divisor(port, baud, quot, quot_frac);
 	else

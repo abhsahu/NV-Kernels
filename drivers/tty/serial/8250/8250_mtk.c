@@ -19,6 +19,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
+#include <linux/acpi.h>
 
 #include "8250.h"
 
@@ -302,7 +303,7 @@ static void mtk8250_set_flow_ctrl(struct uart_8250_port *up, int mode)
 	}
 }
 
-static void
+void
 mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 		    const struct ktermios *old)
 {
@@ -468,7 +469,7 @@ static bool mtk8250_dma_filter(struct dma_chan *chan, void *param)
 }
 #endif
 
-static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
+int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 			   struct mtk8250_data *data)
 {
 #ifdef CONFIG_SERIAL_8250_DMA
@@ -541,13 +542,14 @@ static int mtk8250_probe(struct platform_device *pdev)
 
 	data->clk_count = 0;
 
+#if 0
 	if (pdev->dev.of_node) {
 		err = mtk8250_probe_of(pdev, &uart.port, data);
 		if (err)
 			return err;
 	} else
 		return -ENODEV;
-
+#endif
 	spin_lock_init(&uart.port.lock);
 	uart.port.mapbase = regs->start;
 	uart.port.irq = irq;
@@ -560,16 +562,16 @@ static int mtk8250_probe(struct platform_device *pdev)
 	uart.port.private_data = data;
 	uart.port.shutdown = mtk8250_shutdown;
 	uart.port.startup = mtk8250_startup;
-	uart.port.set_termios = mtk8250_set_termios;
-	uart.port.uartclk = clk_get_rate(data->uart_clk);
+	//uart.port.set_termios = mtk8250_set_termios;
+	uart.port.uartclk = 10000000;//clk_get_rate(data->uart_clk);
 #ifdef CONFIG_SERIAL_8250_DMA
 	if (data->dma)
 		uart.dma = data->dma;
 #endif
 
 	/* Disable Rate Fix function */
-	writel(0x0, uart.port.membase +
-			(MTK_UART_RATE_FIX << uart.port.regshift));
+	//writel(0x0, uart.port.membase +
+			//(MTK_UART_RATE_FIX << uart.port.regshift));
 
 	platform_set_drvdata(pdev, data);
 
@@ -647,11 +649,18 @@ static const struct of_device_id mtk8250_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, mtk8250_of_match);
 
+static const struct acpi_device_id __maybe_unused mtk8250_acpi_match[] = {
+	{ "MTKI0511", 0 },
+	{},
+};
+MODULE_DEVICE_TABLE(acpi, mtk8250_acpi_match);
+
 static struct platform_driver mtk8250_platform_driver = {
 	.driver = {
 		.name		= "mt6577-uart",
 		.pm		= &mtk8250_pm_ops,
 		.of_match_table	= mtk8250_of_match,
+		.acpi_match_table = ACPI_PTR(mtk8250_acpi_match),
 	},
 	.probe			= mtk8250_probe,
 	.remove_new		= mtk8250_remove,
