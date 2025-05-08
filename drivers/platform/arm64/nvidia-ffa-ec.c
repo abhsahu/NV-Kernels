@@ -356,6 +356,8 @@ static void nvidia_ffa_ec_service_notif_callback(int notify_id, void *cb_data)
 		dev_err(&ffa_pdev->dev, "Failed to execute notify\n");
 	else
 		ACPI_FREE(output);
+
+        pr_info("%s:%d notification=%d received\n", __func__, __LINE__, notify_id);
 }
 
 /*
@@ -738,6 +740,25 @@ static const struct acpi_device_id nvidia_ffa_device_ids[] = {
 
 MODULE_DEVICE_TABLE(acpi, nvidia_ffa_device_ids);
 
+static struct proc_dir_entry *proc_entry;
+
+static int myproc_show(struct seq_file *m, void *v) {
+	struct nvidia_ec_ffa_device *dev;
+
+	list_for_each_entry(dev, &nvidia_ec_ffa_dev_head, list) {
+		if (uuid_equal(&nvidia_ec_managment_service_uuid, &dev->ffa_dev->uuid)) {
+			struct ffa_send_direct_data2 ffa_data = { 0 };
+			ffa_data.data[0] = 0x4;
+
+			pr_info("%s:%d test notification triggered\n", __func__, __LINE__);
+			dev->ffa_dev->ops->msg_ops->sync_send_receive2(dev->ffa_dev, &ffa_data);
+			break;
+		}
+	}
+
+	return 0;
+}
+
 static int nvidia_ffa_probe(struct platform_device *pdev)
 {
 	struct acpi_device *adev = ACPI_COMPANION(&pdev->dev);
@@ -773,6 +794,7 @@ static int nvidia_ffa_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	proc_entry = proc_create_single_data("notify_trigger", 0, NULL, myproc_show, pdev);
 	ffa_pdev = pdev;
 
 	ret = ffa_driver_register(&nvidia_ffa_notify_service_driver, THIS_MODULE, DRV_NAME);
@@ -789,6 +811,7 @@ static int nvidia_ffa_probe(struct platform_device *pdev)
 
 static void nvidia_ffa_remove(struct platform_device *pdev)
 {
+	remove_proc_entry("notify_trigger", NULL);
 	ffa_driver_unregister(&nvidia_ffa_notify_service_driver);
 	ffa_pdev = NULL;
 	acpi_arm64_ffh_update_custom_offset_handler(NULL);
