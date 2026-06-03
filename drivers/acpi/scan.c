@@ -2818,6 +2818,21 @@ static void __init acpi_get_spcr_uart_addr(void)
 
 static bool acpi_scan_initialized;
 
+/*
+ * Scan a single ACPI handle and terminate the enclosing
+ * acpi_get_devices() walk after the first match.
+ */
+static acpi_status __init acpi_scan_one_handle_cb(acpi_handle handle, u32 level,
+						  void *context, void **ret)
+{
+	int err = acpi_bus_scan(handle);
+
+	if (err)
+		acpi_handle_warn(handle, "early ACPI bus scan failed: %d\n", err);
+
+	return AE_CTRL_TERMINATE;
+}
+
 void __init acpi_scan_init(void)
 {
 	acpi_status status;
@@ -2865,6 +2880,14 @@ void __init acpi_scan_init(void)
 	 * hotplug/hotunplug operations.
 	 */
 	mutex_lock(&acpi_scan_lock);
+
+	/*
+	 * Enumerate the ARM FF-A EC bridge devices before the full namespace scan
+	 * so that they are available early for ACPI consumers that depend on them.
+	 */
+	acpi_get_devices("ARML0002", acpi_scan_one_handle_cb, NULL, NULL);
+	acpi_get_devices("MSFT000C", acpi_scan_one_handle_cb, NULL, NULL);
+
 	/*
 	 * Enumerate devices in the ACPI namespace.
 	 */
